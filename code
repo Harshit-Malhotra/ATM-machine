@@ -1,8 +1,28 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox
+
+class InputDialog(tk.Toplevel):
+    def __init__(self, parent, title, prompt):
+        super().__init__(parent)
+        self.title(title)
+
+        self.result = None
+
+        label = tk.Label(self, text=prompt)
+        label.pack(padx=10, pady=10)
+
+        self.entry = tk.Entry(self)
+        self.entry.pack(padx=10, pady=10)
+
+        ok_button = tk.Button(self, text="OK", command=self.ok)
+        ok_button.pack(pady=10)
+
+    def ok(self):
+        self.result = self.entry.get()
+        self.destroy()
 
 class ATM:
-    def __init__(self, atm_id, balance=0, pin=0000, transaction_limit=3, daily_transaction_limit=5, bank="Default Bank"):
+    def __init__(self, atm_id, balance=0, pin=None, transaction_limit=3, daily_transaction_limit=5, bank="Default Bank"):
         self.atm_id = atm_id
         self.balance = balance
         self.pin = pin
@@ -13,32 +33,31 @@ class ATM:
         self.bank = bank
 
     def check_balance(self):
-        return f"Your current balance is ${self.balance}"
+        messagebox.showinfo("Balance", f"Your current balance is ${self.balance}")
 
-    def withdraw(self, amount):
+    def withdraw(self, amount, user_balance, user_bank):
         if self.transaction_count >= self.transaction_limit or self.daily_transaction_count >= self.daily_transaction_limit:
             return "Transaction limit exceeded. Cannot perform withdrawal."
 
-        elif amount > self.balance:
+        elif amount > user_balance:
             return "Insufficient funds."
         else:
-            print(self.bank)
             # Apply 5% fee only if the user withdraws from an ATM other than their bank
-            if self.bank != "Default Bank":
+            if self.bank != user_bank:
                 amount_with_fee = amount + (amount * 0.05)
             else:
                 amount_with_fee = amount
 
-            self.balance -= amount_with_fee
+            user_balance -= amount_with_fee
             self.transaction_count += 1
             self.daily_transaction_count += 1
-            return f"Withdrawal successful. Amount withdrawn: ${amount}, Current balance: ${self.balance}"
+            return f"Withdrawal successful. Amount withdrawn: ${amount}, Current balance: ${user_balance}"
 
-    def deposit(self, amount):
-        self.balance += amount
+    def deposit(self, amount, user_balance):
+        user_balance += amount
         self.transaction_count += 1
         self.daily_transaction_count += 1
-        return f"Deposit successful. Amount deposited: ${amount}, Current balance: ${self.balance}"
+        return f"Deposit successful. Amount deposited: ${amount}, Current user balance: ${user_balance}"
 
     def change_pin(self, new_pin):
         self.pin = new_pin
@@ -72,6 +91,11 @@ class ATMGUI(tk.Tk):
         self.pin_entry = tk.Entry(self, show="*")
         self.pin_entry.pack()
 
+        bank_label = tk.Label(self, text="Select Bank:")
+        bank_label.pack()
+        self.bank_entry = tk.Entry(self)
+        self.bank_entry.pack()
+
         login_button = tk.Button(self, text="Login", command=self.login)
         login_button.pack(pady=10)
 
@@ -81,13 +105,14 @@ class ATMGUI(tk.Tk):
     def login(self):
         card_number = self.card_number_entry.get()
         pin = self.pin_entry.get()
+        bank = self.bank_entry.get()
 
-        if not card_number or not pin:
-            messagebox.showerror("Error", "Please enter both card number and PIN.")
+        if not card_number or not pin or not bank:
+            messagebox.showerror("Error", "Please enter card number, PIN, and select a bank.")
             return
 
         user = self.find_user(card_number, pin)
-        atm = self.select_atm()
+        atm = self.select_atm(bank)
 
         if not user or not atm:
             messagebox.showerror("Error", "Invalid user or ATM selection.")
@@ -104,15 +129,13 @@ class ATMGUI(tk.Tk):
                 return user_info
         return None
 
-    def select_atm(self):
-        atm_ids = list(self.atms.keys())
-        selected_atm_id = atm_ids[0]
+    def select_atm(self, bank):
+        for atm_id, atm_instance in self.atms.items():
+            if atm_instance.bank == bank:
+                return atm_instance
 
-        if len(atm_ids) > 1:
-            # Let the user choose the ATM (for future expansion)
-            pass
-
-        return self.atms[selected_atm_id]
+        messagebox.showerror("Error", f"No ATM available for the selected bank: {bank}")
+        return None
 
     def show_menu(self):
         self.clear_widgets()
@@ -136,22 +159,38 @@ class ATMGUI(tk.Tk):
         exit_button.pack(pady=10)
 
     def check_balance(self):
-        messagebox.showinfo("Balance", self.atm.check_balance())
+        messagebox.showinfo("Balance", self.user['balance'])
 
     def withdraw(self):
-        amount = tk.simpledialog.askfloat("Withdraw", "Enter the amount to withdraw:")
-        if amount is not None:
-            messagebox.showinfo("Withdrawal", self.atm.withdraw(amount))
+        amount_dialog = InputDialog(self, "Withdraw", "Enter the amount to withdraw:")
+        self.wait_window(amount_dialog)
+        amount = amount_dialog.result
+
+        if amount is not None and amount.isdigit():
+            amount = float(amount)
+            withdrawal_result = self.atm.withdraw(amount,self.user['balance'] ,self.user['bank'])
+            messagebox.showinfo("Withdrawal", withdrawal_result)
+            self.user['balance'] -= amount
 
     def deposit(self):
-        amount = tk.simpledialog.askfloat("Deposit", "Enter the amount to deposit:")
-        if amount is not None:
-            messagebox.showinfo("Deposit", self.atm.deposit(amount))
+        amount_dialog = InputDialog(self, "Deposit", "Enter the amount to deposit:")
+        self.wait_window(amount_dialog)
+        amount = amount_dialog.result
+
+        if amount is not None and amount.isdigit():
+            amount = float(amount)
+            deposit_result = self.atm.deposit(amount, self.user['balance'])
+            messagebox.showinfo("Deposit", deposit_result)
+            self.user['balance'] += amount
 
     def change_pin(self):
-        new_pin = tk.simpledialog.askinteger("Change PIN", "Enter your new PIN:")
-        if new_pin is not None:
-            messagebox.showinfo("Change PIN", self.atm.change_pin(new_pin))
+        new_pin_dialog = InputDialog(self, "Change PIN", "Enter your new PIN:")
+        self.wait_window(new_pin_dialog)
+        new_pin = new_pin_dialog.result
+
+        if new_pin is not None and new_pin.isdigit():
+            change_pin_result = self.atm.change_pin(new_pin)
+            messagebox.showinfo("Change PIN", change_pin_result)
 
     def clear_widgets(self):
         for widget in self.winfo_children():
@@ -162,15 +201,15 @@ def main():
         'user1': {'card_number': '1111', 'pin': 1234, 'balance': 1000, 'bank': 'BankA'},
         'user2': {'card_number': '2222', 'pin': 5678, 'balance': 1500, 'bank': 'BankB'}
     }
-
+    
     atms = {
-        'ATM001': ATM(atm_id='ATM001', balance=1000, pin=1234, transaction_limit=3, daily_transaction_limit=5, bank="BankA"),
-        'ATM002': ATM(atm_id='ATM002', balance=1500, pin=5678, transaction_limit=3, daily_transaction_limit=5, bank="BankB")
+        'ATM001': ATM(atm_id='ATM001', balance=10000, pin=1234, transaction_limit=3, daily_transaction_limit=5, bank="BankA"),
+        'ATM002': ATM(atm_id='ATM002', balance=15000, pin=5678, transaction_limit=3, daily_transaction_limit=5, bank="BankB")
     }
-
-
+    
     app = ATMGUI(users, atms)
     app.mainloop()
 
 if __name__ == "__main__":
     main()
+
