@@ -1,1 +1,2 @@
 # ATM-machine
+This project is a simple ATM system implemented in Python using the Tkinter library for the graphical user interface. It includes classes for the ATM logic (`ATM`) and the GUI (`ATMGUI`). Users can log in, check balances, make withdrawals, deposits, and change PINs. The system is based on dictionaries for user and ATM data, demonstrating fundamental ATM functionalities in a straightforward manner.
