@@ -51,14 +51,14 @@ class ATM:
             user_balance -= amount_with_fee
             self.transaction_count += 1
             self.daily_transaction_count += 1
-            self.balance += amount  # Add the withdrawn amount to the ATM's balance
+            self.balance -= amount_with_fee  
             return f"Withdrawal successful. Amount withdrawn: ${amount}, Current balance: ${user_balance}"
 
     def deposit(self, amount, user_balance):
         user_balance += amount
         self.transaction_count += 1
         self.daily_transaction_count += 1
-        self.balance += amount  # Add the deposited amount to the ATM's balance
+        self.balance += amount  
         return f"Deposit successful. Amount deposited: ${amount}, Current user balance: ${user_balance}"
 
     def change_pin(self, new_pin):
@@ -241,4 +241,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
