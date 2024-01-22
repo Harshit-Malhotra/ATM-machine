@@ -33,7 +33,7 @@ class ATM:
         self.bank = bank
 
     def check_balance(self):
-        messagebox.showinfo("Balance", f"Your current balance is ${self.balance}")
+        messagebox.showinfo("Balance", f"ATM Balance: ${self.balance}")
 
     def withdraw(self, amount, user_balance, user_bank):
         if self.transaction_count >= self.transaction_limit or self.daily_transaction_count >= self.daily_transaction_limit:
@@ -51,17 +51,23 @@ class ATM:
             user_balance -= amount_with_fee
             self.transaction_count += 1
             self.daily_transaction_count += 1
+            self.balance += amount  # Add the withdrawn amount to the ATM's balance
             return f"Withdrawal successful. Amount withdrawn: ${amount}, Current balance: ${user_balance}"
 
     def deposit(self, amount, user_balance):
         user_balance += amount
         self.transaction_count += 1
         self.daily_transaction_count += 1
+        self.balance += amount  # Add the deposited amount to the ATM's balance
         return f"Deposit successful. Amount deposited: ${amount}, Current user balance: ${user_balance}"
 
     def change_pin(self, new_pin):
         self.pin = new_pin
         return "PIN changed successfully."
+
+    def add_money_to_atm(self, amount):
+        self.balance += amount
+        return f"Money added to ATM. New ATM balance: ${self.balance}"
 
 class ATMGUI(tk.Tk):
     def __init__(self, users, atms):
@@ -71,6 +77,7 @@ class ATMGUI(tk.Tk):
         self.atms = atms
         self.user = None
         self.atm = None
+        self.cache = {}
 
         self.title("ATM Machine")
         self.geometry("400x300")
@@ -155,33 +162,43 @@ class ATMGUI(tk.Tk):
         change_pin_button = tk.Button(self, text="Change PIN", command=self.change_pin)
         change_pin_button.pack()
 
+        if self.user['role'] == 'employee':
+            add_money_button = tk.Button(self, text="Add Money to ATM", command=self.add_money_to_atm)
+            add_money_button.pack()
+
         exit_button = tk.Button(self, text="Exit", command=self.destroy)
         exit_button.pack(pady=10)
 
     def check_balance(self):
-        messagebox.showinfo("Balance", self.user['balance'])
+        messagebox.showinfo("Balance", f"User Balance: ${self.user['balance']}, ATM Balance: ${self.atm.balance}")
 
     def withdraw(self):
-        amount_dialog = InputDialog(self, "Withdraw", "Enter the amount to withdraw:")
-        self.wait_window(amount_dialog)
-        amount = amount_dialog.result
+        if self.user['role'] == 'customer':
+            amount_dialog = InputDialog(self, "Withdraw", "Enter the amount to withdraw:")
+            self.wait_window(amount_dialog)
+            amount = amount_dialog.result
 
-        if amount is not None and amount.isdigit():
-            amount = float(amount)
-            withdrawal_result = self.atm.withdraw(amount,self.user['balance'] ,self.user['bank'])
-            messagebox.showinfo("Withdrawal", withdrawal_result)
-            self.user['balance'] -= amount
+            if amount is not None and amount.isdigit():
+                amount = float(amount)
+                withdrawal_result = self.atm.withdraw(amount, self.user['balance'], self.user['bank'])
+                messagebox.showinfo("Withdrawal", withdrawal_result)
+                self.user['balance'] -= amount
+        else:
+            messagebox.showinfo("Withdrawal", "Employee cannot perform withdrawals.")
 
     def deposit(self):
-        amount_dialog = InputDialog(self, "Deposit", "Enter the amount to deposit:")
-        self.wait_window(amount_dialog)
-        amount = amount_dialog.result
+        if self.user['role'] == 'customer':
+            amount_dialog = InputDialog(self, "Deposit", "Enter the amount to deposit:")
+            self.wait_window(amount_dialog)
+            amount = amount_dialog.result
 
-        if amount is not None and amount.isdigit():
-            amount = float(amount)
-            deposit_result = self.atm.deposit(amount, self.user['balance'])
-            messagebox.showinfo("Deposit", deposit_result)
-            self.user['balance'] += amount
+            if amount is not None and amount.isdigit():
+                amount = float(amount)
+                deposit_result = self.atm.deposit(amount, self.user['balance'])
+                messagebox.showinfo("Deposit", deposit_result)
+                self.user['balance'] += amount
+        else:
+            messagebox.showinfo("Deposit", "Employee cannot perform deposits.")
 
     def change_pin(self):
         new_pin_dialog = InputDialog(self, "Change PIN", "Enter your new PIN:")
@@ -192,21 +209,33 @@ class ATMGUI(tk.Tk):
             change_pin_result = self.atm.change_pin(new_pin)
             messagebox.showinfo("Change PIN", change_pin_result)
 
+    def add_money_to_atm(self):
+        amount_dialog = InputDialog(self, "Add Money to ATM", "Enter the amount to add to the ATM:")
+        self.wait_window(amount_dialog)
+        amount = amount_dialog.result
+
+        if amount is not None and amount.isdigit():
+            amount = float(amount)
+            add_money_result = self.atm.add_money_to_atm(amount)
+            messagebox.showinfo("Add Money to ATM", add_money_result)
+
     def clear_widgets(self):
         for widget in self.winfo_children():
             widget.destroy()
 
 def main():
     users = {
-        'user1': {'card_number': '1111', 'pin': 1234, 'balance': 1000, 'bank': 'BankA'},
-        'user2': {'card_number': '2222', 'pin': 5678, 'balance': 1500, 'bank': 'BankB'}
+        'user1': {'card_number': '1111', 'pin': 1234, 'balance': 1000, 'bank': 'BankA', 'role': 'customer'},
+        'user2': {'card_number': '2222', 'pin': 5678, 'balance': 1500, 'bank': 'BankB', 'role': 'customer'},
+        'employee1': {'card_number': '3333', 'pin': 9999, 'balance': 0, 'bank': 'BankA', 'role': 'employee'},
+        'employee2': {'card_number': '4444', 'pin': 8888, 'balance': 0, 'bank': 'BankB', 'role': 'employee'}
     }
-    
+
     atms = {
         'ATM001': ATM(atm_id='ATM001', balance=10000, pin=1234, transaction_limit=3, daily_transaction_limit=5, bank="BankA"),
         'ATM002': ATM(atm_id='ATM002', balance=15000, pin=5678, transaction_limit=3, daily_transaction_limit=5, bank="BankB")
     }
-    
+
     app = ATMGUI(users, atms)
     app.mainloop()
 
