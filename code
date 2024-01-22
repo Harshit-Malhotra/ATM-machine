@@ -1,0 +1,176 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+class ATM:
+    def __init__(self, atm_id, balance=0, pin=0000, transaction_limit=3, daily_transaction_limit=5, bank="Default Bank"):
+        self.atm_id = atm_id
+        self.balance = balance
+        self.pin = pin
+        self.transaction_count = 0
+        self.daily_transaction_count = 0
+        self.transaction_limit = transaction_limit
+        self.daily_transaction_limit = daily_transaction_limit
+        self.bank = bank
+
+    def check_balance(self):
+        return f"Your current balance is ${self.balance}"
+
+    def withdraw(self, amount):
+        if self.transaction_count >= self.transaction_limit or self.daily_transaction_count >= self.daily_transaction_limit:
+            return "Transaction limit exceeded. Cannot perform withdrawal."
+
+        elif amount > self.balance:
+            return "Insufficient funds."
+        else:
+            print(self.bank)
+            # Apply 5% fee only if the user withdraws from an ATM other than their bank
+            if self.bank != "Default Bank":
+                amount_with_fee = amount + (amount * 0.05)
+            else:
+                amount_with_fee = amount
+
+            self.balance -= amount_with_fee
+            self.transaction_count += 1
+            self.daily_transaction_count += 1
+            return f"Withdrawal successful. Amount withdrawn: ${amount}, Current balance: ${self.balance}"
+
+    def deposit(self, amount):
+        self.balance += amount
+        self.transaction_count += 1
+        self.daily_transaction_count += 1
+        return f"Deposit successful. Amount deposited: ${amount}, Current balance: ${self.balance}"
+
+    def change_pin(self, new_pin):
+        self.pin = new_pin
+        return "PIN changed successfully."
+
+class ATMGUI(tk.Tk):
+    def __init__(self, users, atms):
+        super().__init__()
+
+        self.users = users
+        self.atms = atms
+        self.user = None
+        self.atm = None
+
+        self.title("ATM Machine")
+        self.geometry("400x300")
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        label = tk.Label(self, text="Welcome to the ATM Machine", font=("Helvetica", 16))
+        label.pack(pady=10)
+
+        card_number_label = tk.Label(self, text="Card Number:")
+        card_number_label.pack()
+        self.card_number_entry = tk.Entry(self)
+        self.card_number_entry.pack()
+
+        pin_label = tk.Label(self, text="PIN:")
+        pin_label.pack()
+        self.pin_entry = tk.Entry(self, show="*")
+        self.pin_entry.pack()
+
+        login_button = tk.Button(self, text="Login", command=self.login)
+        login_button.pack(pady=10)
+
+        exit_button = tk.Button(self, text="Exit", command=self.destroy)
+        exit_button.pack(pady=10)
+
+    def login(self):
+        card_number = self.card_number_entry.get()
+        pin = self.pin_entry.get()
+
+        if not card_number or not pin:
+            messagebox.showerror("Error", "Please enter both card number and PIN.")
+            return
+
+        user = self.find_user(card_number, pin)
+        atm = self.select_atm()
+
+        if not user or not atm:
+            messagebox.showerror("Error", "Invalid user or ATM selection.")
+            return
+
+        self.user = user
+        self.atm = atm
+
+        self.show_menu()
+
+    def find_user(self, card_number, pin):
+        for user_id, user_info in self.users.items():
+            if user_info['card_number'] == card_number and user_info['pin'] == int(pin):
+                return user_info
+        return None
+
+    def select_atm(self):
+        atm_ids = list(self.atms.keys())
+        selected_atm_id = atm_ids[0]
+
+        if len(atm_ids) > 1:
+            # Let the user choose the ATM (for future expansion)
+            pass
+
+        return self.atms[selected_atm_id]
+
+    def show_menu(self):
+        self.clear_widgets()
+
+        menu_label = tk.Label(self, text="Menu", font=("Helvetica", 14))
+        menu_label.pack(pady=10)
+
+        check_balance_button = tk.Button(self, text="Check Balance", command=self.check_balance)
+        check_balance_button.pack()
+
+        withdraw_button = tk.Button(self, text="Withdraw", command=self.withdraw)
+        withdraw_button.pack()
+
+        deposit_button = tk.Button(self, text="Deposit", command=self.deposit)
+        deposit_button.pack()
+
+        change_pin_button = tk.Button(self, text="Change PIN", command=self.change_pin)
+        change_pin_button.pack()
+
+        exit_button = tk.Button(self, text="Exit", command=self.destroy)
+        exit_button.pack(pady=10)
+
+    def check_balance(self):
+        messagebox.showinfo("Balance", self.atm.check_balance())
+
+    def withdraw(self):
+        amount = tk.simpledialog.askfloat("Withdraw", "Enter the amount to withdraw:")
+        if amount is not None:
+            messagebox.showinfo("Withdrawal", self.atm.withdraw(amount))
+
+    def deposit(self):
+        amount = tk.simpledialog.askfloat("Deposit", "Enter the amount to deposit:")
+        if amount is not None:
+            messagebox.showinfo("Deposit", self.atm.deposit(amount))
+
+    def change_pin(self):
+        new_pin = tk.simpledialog.askinteger("Change PIN", "Enter your new PIN:")
+        if new_pin is not None:
+            messagebox.showinfo("Change PIN", self.atm.change_pin(new_pin))
+
+    def clear_widgets(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
+def main():
+    users = {
+        'user1': {'card_number': '1111', 'pin': 1234, 'balance': 1000, 'bank': 'BankA'},
+        'user2': {'card_number': '2222', 'pin': 5678, 'balance': 1500, 'bank': 'BankB'}
+    }
+
+    atms = {
+        'ATM001': ATM(atm_id='ATM001', balance=1000, pin=1234, transaction_limit=3, daily_transaction_limit=5, bank="BankA"),
+        'ATM002': ATM(atm_id='ATM002', balance=1500, pin=5678, transaction_limit=3, daily_transaction_limit=5, bank="BankB")
+    }
+
+
+    app = ATMGUI(users, atms)
+    app.mainloop()
+
+if __name__ == "__main__":
+    main()
